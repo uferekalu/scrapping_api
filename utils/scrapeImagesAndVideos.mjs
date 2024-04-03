@@ -44,10 +44,11 @@ export async function scrapeImagesAndVideos(url) {
     $('a').each((index, element) => {
       const href = $(element).attr('href')
       if (
-        href &&
-        (href.includes('.mp4') ||
-          href.includes('.mov') ||
-          href.includes('.wmv'))
+        (href &&
+          (href.includes('.mp4') ||
+            href.includes('.mov') ||
+            href.includes('.wmv'))) ||
+        href.includes('.webm')
       ) {
         videos.push(href)
       }
