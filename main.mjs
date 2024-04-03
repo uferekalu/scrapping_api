@@ -42,7 +42,7 @@ app.get('/api/images', cors(), async (req, res) => {
   }
 })
 
-app.get('/api/videos', async (req, res) => {
+app.get('/api/videos', cors(), async (req, res) => {
   const url = req.query.url;
   if (!url) {
     return res.status(400).json({ error: 'URL parameter is missing.' });
@@ -63,7 +63,7 @@ app.get('/api/videos', async (req, res) => {
   }
 });
 
-app.get('/api/pdfs', async (req, res) => {
+app.get('/api/pdfs', cors(), async (req, res) => {
   const url = req.query.url;
   if (!url) {
     return res.status(400).json({ error: 'URL parameter is missing.' });
