@@ -11,7 +11,6 @@ export async function scrapeImagesAndVideos(url) {
     const images = []
     const videos = []
 
-    // Scrape image URLs
     $('img').each((index, element) => {
       const imageUrl = $(element).attr('src')
       if (imageUrl) {
@@ -19,15 +18,20 @@ export async function scrapeImagesAndVideos(url) {
       }
     })
 
-    // Scrape video URLs from video elements
     $('video source').each((index, element) => {
       const videoUrl = $(element).attr('src')
       if (videoUrl) {
         videos.push(videoUrl)
       }
     })
+    
+    $('video').each((index, element) => {
+      const videoUrl = $(element).attr('src')
+      if (videoUrl) {
+        videos.push(videoUrl)
+      }
+    })
 
-    // Scrape video URLs from iframes (YouTube, Vimeo, Dailymotion)
     $('iframe').each((index, element) => {
       const src = $(element).attr('src')
       if (
@@ -40,7 +44,6 @@ export async function scrapeImagesAndVideos(url) {
       }
     })
 
-    // Scrape video URLs from anchor tags linking to video files
     $('a').each((index, element) => {
       const href = $(element).attr('href')
       if (
