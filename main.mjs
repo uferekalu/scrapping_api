@@ -43,58 +43,98 @@ app.get('/api/images', cors(), async (req, res) => {
 })
 
 app.get('/api/videos', cors(), async (req, res) => {
-  const url = req.query.url;
+  const url = req.query.url
   if (!url) {
-    return res.status(400).json({ error: 'URL parameter is missing.' });
+    return res.status(400).json({ error: 'URL parameter is missing.' })
   }
 
   try {
-    const { videos } = await scrapeImagesAndVideos(url);
-    
+    const { videos } = await scrapeImagesAndVideos(url)
+
     // If no videos found, send a message
     if (videos.length > 0) {
-      res.json({ videos });
+      res.json({ videos })
     } else {
-      res.json({ message: 'No videos found.' });
+      res.json({ message: 'No videos found.' })
     }
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch videos.' });
+    console.error('Error:', error)
+    res.status(500).json({ error: 'Failed to fetch videos.' })
   }
-});
+})
 
 app.get('/api/pdfs', cors(), async (req, res) => {
-  const url = req.query.url;
+  const url = req.query.url
   if (!url) {
-    return res.status(400).json({ error: 'URL parameter is missing.' });
+    return res.status(400).json({ error: 'URL parameter is missing.' })
   }
 
   try {
-    const response = await fetch(url);
-    const html = await response.text();
+    const response = await fetch(url)
+    const html = await response.text()
     const cheerio = (await import('cheerio')).default
     const $ = cheerio.load(html)
-    const pdfLinks = [];
+    const pdfLinks = []
 
     // Find all anchor tags and check if their href attribute ends with .pdf
     $('a').each((index, element) => {
-      const href = $(element).attr('href');
+      const href = $(element).attr('href')
       if (href && href.toLowerCase().endsWith('.pdf')) {
-        pdfLinks.push(href);
+        pdfLinks.push(href)
       }
-    });
+    })
 
     // If no PDFs found, send a message
     if (pdfLinks.length > 0) {
-      res.json({ pdfs: pdfLinks });
+      res.json({ pdfs: pdfLinks })
     } else {
-      res.json({ message: 'No PDF files found.' });
+      res.json({ message: 'No PDF files found.' })
     }
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch PDF files.' });
+    console.error('Error:', error)
+    res.status(500).json({ error: 'Failed to fetch PDF files.' })
   }
-});
+})
+
+app.get('/api/summary', cors(), async (req, res) => {
+  const { url } = req.query
+  try {
+    const response = await fetch(url)
+    const html = await response.text()
+    const cheerio = (await import('cheerio')).default
+    const $ = cheerio.load(html)
+
+    let title = ''
+    let description = ''
+
+    const titleElement = $('title')
+    if (titleElement.length > 0) {
+      title = titleElement.text().trim()
+    }
+
+    const descriptionElement = $('meta[name="description"]')
+    if (descriptionElement.length > 0) {
+      description = descriptionElement.attr('content')
+      if (description) {
+        description = description.trim()
+      }
+    }
+
+    if (!description && title) {
+      description = title
+    } else if (!description && !title) {
+      description =
+        'No description available. Click on the link to see the website in details'
+    }
+
+    console.log(description)
+
+    res.json({ title, description })
+  } catch (error) {
+    console.error('Error fetching webpage content:', error)
+    res.status(500).json({ error: 'Internal Server Error' })
+  }
+})
 
 const PORT = process.env.PORT || 4000
 app.listen(PORT, () => {
