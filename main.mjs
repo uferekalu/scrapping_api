@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { scrapeImagesAndVideos } from './utils/scrapeImagesAndVideos.mjs'
+import { isVideoUrl } from './utils/isVideoLink'
 
 const app = express()
 
@@ -49,17 +49,38 @@ app.get('/api/videos', cors(), async (req, res) => {
   }
 
   try {
-    const { videos } = await scrapeImagesAndVideos(url)
+    const response = await fetch(url)
+    const html = await response.text()
+    const cheerio = (await import('cheerio')).default
+    const $ = cheerio.load(html)
+    const mediaLinks = []
 
-    // If no videos found, send a message
-    if (videos.length > 0) {
-      res.json({ videos })
+    $('a').each((index, element) => {
+      const href = $(element).attr('href')
+      if (href) {
+        if (isVideoUrl(href)) {
+          mediaLinks.push(href)
+        }
+      }
+    })
+
+    if (mediaLinks.length === 0) {
+      $('a').each((index, element) => {
+        const text = $(element).text()
+        if (text.toLowerCase().includes('video')) {
+          mediaLinks.push($(element).attr('href'))
+        }
+      })
+    }
+
+    if (mediaLinks.length > 0) {
+      res.json({ videos: mediaLinks })
     } else {
-      res.json({ message: 'No videos found.' })
+      res.json({ message: 'No video files found.' })
     }
   } catch (error) {
     console.error('Error:', error)
-    res.status(500).json({ error: 'Failed to fetch videos.' })
+    res.status(500).json({ error: 'Failed to fetch video files.' })
   }
 })
 
@@ -76,15 +97,26 @@ app.get('/api/pdfs', cors(), async (req, res) => {
     const $ = cheerio.load(html)
     const pdfLinks = []
 
-    // Find all anchor tags and check if their href attribute ends with .pdf
     $('a').each((index, element) => {
       const href = $(element).attr('href')
-      if (href && href.toLowerCase().endsWith('.pdf')) {
-        pdfLinks.push(href)
+      if (href) {
+        if (href.toLowerCase().endsWith('.pdf')) {
+          pdfLinks.push(href)
+        } else if (href.toLowerCase().includes('.pdf')) {
+          pdfLinks.push(href)
+        }
       }
     })
 
-    // If no PDFs found, send a message
+    if (pdfLinks.length === 0) {
+      $('a').each((index, element) => {
+        const text = $(element).text()
+        if (text.toLowerCase().includes('pdf')) {
+          pdfLinks.push($(element).attr('href'))
+        }
+      })
+    }
+
     if (pdfLinks.length > 0) {
       res.json({ pdfs: pdfLinks })
     } else {
