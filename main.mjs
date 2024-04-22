@@ -128,6 +128,25 @@ app.get('/api/pdfs', cors(), async (req, res) => {
   }
 })
 
+app.get('/api/download-pdf', cors(), async (req, res) => {
+  const pdfUrl = req.query.url;
+
+  try {
+    const response = await fetch(pdfUrl);
+    if (!response.ok) {
+      throw new Error('Network Problem');
+    }
+
+    const pdfBlob = await response.blob();
+    res.setHeader('Content-Disposition', 'attachment; filename="downloaded_file.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.send(pdfBlob);
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    res.status(500).json({ error: 'Failed to download PDF file.' });
+  }
+});
+
 app.get('/api/summary', cors(), async (req, res) => {
   const { url } = req.query
   try {
