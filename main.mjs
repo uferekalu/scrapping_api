@@ -1,8 +1,27 @@
 import express from 'express'
 import cors from 'cors'
+import puppeteer from 'puppeteer'
+import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
+import { promisify } from 'util'
+import NodeCache from 'node-cache'
+import { fileURLToPath } from 'url'
 import { isVideoUrl } from './utils/isVideoLink'
 
+const cache = new NodeCache()
 const app = express()
+
+const browserOptions = {
+  headless: true,
+  args: ['--no-sandbox'],
+}
+
+const launchOptions = {
+  timeout: 60000,
+}
+
+const writeFileAsync = promisify(fs.writeFile)
 
 app.get('/api/images', cors(), async (req, res) => {
   const url = req.query.url
@@ -129,23 +148,33 @@ app.get('/api/pdfs', cors(), async (req, res) => {
 })
 
 app.get('/api/download-pdf', cors(), async (req, res) => {
-  const pdfUrl = req.query.url;
+  const pdfUrl = req.query.url
 
   try {
-    const response = await fetch(pdfUrl);
+    console.log('Fetching PDF from URL:', pdfUrl)
+    const response = await fetch(pdfUrl)
     if (!response.ok) {
-      throw new Error('Network Problem');
+      throw new Error('Failed to fetch PDF')
     }
 
-    const pdfBlob = await response.blob();
-    res.setHeader('Content-Disposition', 'attachment; filename="downloaded_file.pdf"');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.send(pdfBlob);
+    console.log('Converting PDF to Blob')
+    const pdfBlob = await response.blob()
+
+    console.log('Setting response headers')
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="downloaded_file.pdf"',
+    )
+    res.setHeader('Content-Type', 'application/pdf')
+
+    console.log('Sending PDF response')
+    console.log(pdfBlob)
+    res.send(pdfBlob)
   } catch (error) {
-    console.error('Error downloading file:', error);
-    res.status(500).json({ error: 'Failed to download PDF file.' });
+    console.error('Error downloading file:', error)
+    res.status(500).json({ error: 'Failed to download PDF file.' })
   }
-});
+})
 
 app.get('/api/summary', cors(), async (req, res) => {
   const { url } = req.query
@@ -186,6 +215,47 @@ app.get('/api/summary', cors(), async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' })
   }
 })
+
+app.get('/api/thumbnail', async (req, res) => {
+  const url = req.query.url
+  const width = req.query.width || 1024
+  const height = req.query.height || 768
+  const filename = `${crypto
+    .createHash('sha256')
+    .update(req.query.url)
+    .digest('hex')}-${width}x${height}.png`
+  const dirname = path.dirname(fileURLToPath(import.meta.url))
+  const cacheKey = `thumbnail-${filename}`
+
+  try {
+    const cachedThumbnail = cache.get(cacheKey)
+    if (cachedThumbnail) {
+      res
+        .status(200)
+        .json({ url: `${req.protocol}://${req.get('host')}/${filename}` })
+      return
+    }
+
+    const browser = await puppeteer.launch(browserOptions, launchOptions)
+    const page = await browser.newPage()
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 })
+    await page.setViewport({ width, height })
+    const thumbnail = await page.screenshot({ type: 'png' })
+    await browser.close()
+
+    await writeFileAsync(path.join(dirname, 'public', filename), thumbnail)
+    cache.set(cacheKey, thumbnail, 3600)
+
+    res
+      .status(200)
+      .json({ url: `${req.protocol}://${req.get('host')}/${filename}` })
+  } catch (error) {
+    console.error(error)
+    res.status(500).send('Error generating thumbnail')
+  }
+})
+
+app.use(express.static('public'))
 
 const PORT = process.env.PORT || 4000
 app.listen(PORT, () => {

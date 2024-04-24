@@ -16,10 +16,11 @@
     "cors": "^2.8.5",
     "esm": "^3.2.25",
     "express": "^4.19.2",
+    "node-cache": "^5.1.2",
     "node-fetch": "^2.6.1",
     "nodemon": "^3.1.0",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^4.1.392",
-    "puppeteer": "^22.6.3"
+    "puppeteer": "^18.1.0"
   }
 }
