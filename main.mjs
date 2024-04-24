@@ -216,7 +216,7 @@ app.get('/api/summary', cors(), async (req, res) => {
   }
 })
 
-app.get('/api/thumbnail', async (req, res) => {
+app.get('/api/thumbnail', cors(), async (req, res) => {
   const url = req.query.url
   const width = req.query.width || 1024
   const height = req.query.height || 768
