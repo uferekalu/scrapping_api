@@ -8,6 +8,7 @@ import { promisify } from 'util'
 import NodeCache from 'node-cache'
 import { fileURLToPath } from 'url'
 import { isVideoUrl } from './utils/isVideoLink'
+import { getFavicon } from './utils/scrapeImagesAndVideos.mjs'
 
 const cache = new NodeCache()
 const app = express()
@@ -254,6 +255,18 @@ app.get('/api/thumbnail', cors(), async (req, res) => {
     res.status(500).send('Error generating thumbnail')
   }
 })
+
+app.get('/api/favicon', async (req, res) => {
+	const url = req.query.url;
+	const faviconUrl = await getFavicon(url);
+
+	if (!faviconUrl) {
+		return res.status(404).send('Favicon not found');
+	}
+
+	res.json(faviconUrl);
+});
+
 
 app.use(express.static('public'))
 
