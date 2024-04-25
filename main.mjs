@@ -256,7 +256,7 @@ app.get('/api/thumbnail', cors(), async (req, res) => {
   }
 })
 
-app.get('/api/favicon', async (req, res) => {
+app.get('/api/favicon', cors(), async (req, res) => {
 	const url = req.query.url;
 	const faviconUrl = await getFavicon(url);
 
