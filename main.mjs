@@ -272,21 +272,11 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const getOrganicData = async (url, maxResults = 40) => {
   const cheerio = (await import('cheerio')).default
-  // Extract the query parameter from the URL
-  const urlParams = new URLSearchParams(url)
-  const query = urlParams.get('q')
 
-  // Generate cache key based on the query parameter
-  const cacheKey = `search_results_${encodeURIComponent(query)}_${maxResults}`
+  const mainQuery = url.split('?q=')[1];
+  console.log("query", mainQuery)
 
-  // Check if the cached results exist
-  const cachedResults = cache.get(cacheKey)
-  if (cachedResults) {
-    console.log('Using cached results')
-    return cachedResults
-  }
-
-  const resultsPerPage = 10 // Number of results per page
+  const resultsPerPage = 10
   let remainingResults = maxResults
   let startIndex = 0
   let organicResults = []
@@ -312,32 +302,28 @@ const getOrganicData = async (url, maxResults = 40) => {
       $('.g').each((i, el) => {
         const title = $(el).find('h3').text()
         const link = $(el).find('a').attr('href')
-        const snippet = $(el).find('.VwiC3b span').html() // Extract HTML content
+        const snippet = $(el).find('.VwiC3b span').html()
         const displayedLink = $(el).find('.tjvcx').text()
-        const imageUrl = $(el).find('.XNo5Ab').attr('src') // Image URL
+        const imageUrl = $(el).find('.XNo5Ab').attr('src')
 
         organicResults.push({
           title,
           link,
           snippet,
           displayedLink,
-          imageUrl, // Add image URL to the result object
+          imageUrl,
         })
       })
 
       startIndex += resultsPerPage
       remainingResults -= resultsPerPage
-
-      // Add a delay between requests to avoid rate limiting
-      await delay(1000) // Adjust delay as needed
+      
+      await delay(1000)
     } catch (error) {
       console.error('Error fetching search results:', error)
       return null
     }
   }
-
-  // Cache the results using only the query parameter in the cache key
-  cache.set(cacheKey, organicResults)
 
   return organicResults.slice(0, maxResults)
 }
