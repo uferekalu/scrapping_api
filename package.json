@@ -21,6 +21,7 @@
     "nodemon": "^3.1.0",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^4.1.392",
-    "puppeteer": "^18.1.0"
+    "puppeteer": "^18.1.0",
+    "unirest": "^0.6.0"
   }
 }

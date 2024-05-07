@@ -9,8 +9,9 @@ import NodeCache from 'node-cache'
 import { fileURLToPath } from 'url'
 import { isVideoUrl } from './utils/isVideoLink'
 import { getFavicon } from './utils/scrapeImagesAndVideos.mjs'
+import unirest from 'unirest'
 
-const cache = new NodeCache()
+const cache = new NodeCache({ stdTTL: 3600 })
 const app = express()
 
 const browserOptions = {
@@ -257,16 +258,151 @@ app.get('/api/thumbnail', cors(), async (req, res) => {
 })
 
 app.get('/api/favicon', cors(), async (req, res) => {
-	const url = req.query.url;
-	const faviconUrl = await getFavicon(url);
+  const url = req.query.url
+  const faviconUrl = await getFavicon(url)
 
-	if (!faviconUrl) {
-		return res.status(404).send('Favicon not found');
-	}
+  if (!faviconUrl) {
+    return res.status(404).send('Favicon not found')
+  }
 
-	res.json(faviconUrl);
-});
+  res.json(faviconUrl)
+})
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const getOrganicData = async (url, maxResults = 40) => {
+  const cheerio = (await import('cheerio')).default
+  // Extract the query parameter from the URL
+  const urlParams = new URLSearchParams(url)
+  const query = urlParams.get('q')
+
+  // Generate cache key based on the query parameter
+  const cacheKey = `search_results_${encodeURIComponent(query)}_${maxResults}`
+
+  // Check if the cached results exist
+  const cachedResults = cache.get(cacheKey)
+  if (cachedResults) {
+    console.log('Using cached results')
+    return cachedResults
+  }
+
+  const resultsPerPage = 10 // Number of results per page
+  let remainingResults = maxResults
+  let startIndex = 0
+  let organicResults = []
+
+  while (remainingResults > 0) {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(
+      url,
+    )}&start=${startIndex}`
+
+    try {
+      const response = await unirest.get(searchUrl).headers({
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36',
+      })
+
+      if (!response.ok) {
+        console.error(`HTTP error, status = ${response.status}`)
+        return null
+      }
+
+      const $ = cheerio.load(response.body)
+
+      $('.g').each((i, el) => {
+        const title = $(el).find('h3').text()
+        const link = $(el).find('a').attr('href')
+        const snippet = $(el).find('.VwiC3b span').html() // Extract HTML content
+        const displayedLink = $(el).find('.tjvcx').text()
+        const imageUrl = $(el).find('.XNo5Ab').attr('src') // Image URL
+
+        organicResults.push({
+          title,
+          link,
+          snippet,
+          displayedLink,
+          imageUrl, // Add image URL to the result object
+        })
+      })
+
+      startIndex += resultsPerPage
+      remainingResults -= resultsPerPage
+
+      // Add a delay between requests to avoid rate limiting
+      await delay(1000) // Adjust delay as needed
+    } catch (error) {
+      console.error('Error fetching search results:', error)
+      return null
+    }
+  }
+
+  // Cache the results using only the query parameter in the cache key
+  cache.set(cacheKey, organicResults)
+
+  return organicResults.slice(0, maxResults)
+}
+
+// const getOrganicData = async (url) => {
+//   const cheerio = (await import('cheerio')).default
+//   return new Promise((resolve, reject) => {
+//     unirest
+//       .get(url)
+//       .headers({
+// 'User-Agent':
+//   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36',
+//       })
+//       .end((response) => {
+//         if (response.error) {
+//           reject(response.error)
+//           return
+//         }
+
+//         const $ = cheerio.load(response.body)
+//         console.log(response.status)
+//         const titles = []
+//         const links = []
+//         const snippets = []
+//         const displayedLinks = []
+
+//         $('.g .yuRUbf h3').each((i, el) => {
+//           titles[i] = $(el).text()
+//         })
+//         $('.yuRUbf a').each((i, el) => {
+//           links[i] = $(el).attr('href')
+//         })
+//         $('.g .VwiC3b ').each((i, el) => {
+//           snippets[i] = $(el).text()
+//         })
+//         $('.g .yuRUbf .NJjxre .tjvcx').each((i, el) => {
+//           displayedLinks[i] = $(el).text()
+//         })
+
+//         const organicResults = []
+
+//         for (let i = 0; i < titles.length; i++) {
+//           organicResults[i] = {
+//             title: titles[i],
+//             links: links[i],
+//             snippet: snippets[i],
+//             displayedLink: displayedLinks[i],
+//           }
+//         }
+//         console.log(organicResults)
+//         resolve(organicResults)
+//       })
+//   })
+// }
+
+app.get('/api/googleScrape', cors(), async (req, res) => {
+  const url = req.query.url
+  try {
+    const organicResults = await getOrganicData(url)
+    res.json(organicResults)
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' })
+    console.error(error)
+  }
+})
 
 app.use(express.static('public'))
 
